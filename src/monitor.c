@@ -4,86 +4,247 @@
 #include <stdlib.h>
 
 double celsius_para_fahrenheit(double temperatura) {
-    /* ETAPA 01: implemente a conversão. */
-    return temperatura;
+    return temperatura * 9.0 / 5.0 + 32.0;
 }
 
 bool leitura_valida(double valor) {
-    /* ETAPA 01: aceite valores entre -40.0 e 125.0, inclusive. */
-    (void)valor;
-    return false;
+    return valor >= -40.0 && valor <= 125.0;
 }
 
 EstadoLeitura classificar_leitura(double valor) {
-    /* ETAPA 01: classifique com if/else. */
-    (void)valor;
-    return LEITURA_INVALIDA;
+    if (!leitura_valida(valor)) {
+        return LEITURA_INVALIDA;
+    } else if (valor >= 80.0) {
+        return LEITURA_ALERTA;
+    } else {
+        return LEITURA_NORMAL;
+    }
 }
 
 const char *estado_como_texto(EstadoLeitura estado) {
-    /* ETAPA 01: converta o enum em texto usando switch. */
-    (void)estado;
-    return "NAO_IMPLEMENTADO";
+    switch (estado) {
+        case LEITURA_INVALIDA:
+            return "INVALIDA";
+
+        case LEITURA_NORMAL:
+            return "NORMAL";
+
+        case LEITURA_ALERTA:
+            return "ALERTA";
+    }
+
+    return "DESCONHECIDA";
 }
 
 bool calcular_estatisticas(const Sensor *sensor, Estatisticas *resultado) {
-    /* ETAPA 02: calcule mínima, máxima e média das leituras válidas. */
-    (void)sensor;
-    (void)resultado;
-    return false;
+    if (sensor == NULL || resultado == NULL ||
+        sensor->quantidade > MAX_LEITURAS) {
+        return false;
+    }
+
+    size_t validas = 0;
+    double soma = 0.0;
+
+    for (size_t i = 0; i < sensor->quantidade; i++) {
+        double valor = sensor->leituras[i];
+
+        if (!leitura_valida(valor)) {
+            continue;
+        }
+
+        if (validas == 0 || valor < resultado->minima) {
+            resultado->minima = valor;
+        }
+
+        if (validas == 0 || valor > resultado->maxima) {
+            resultado->maxima = valor;
+        }
+
+        soma += valor;
+        validas++;
+    }
+
+    if (validas == 0) {
+        return false;
+    }
+
+    resultado->media = soma / validas;
+
+    return true;
 }
 
 bool sensor_adicionar_leitura(Sensor *sensor, double valor) {
-    /* ETAPA 03: valide os ponteiros, a leitura e a capacidade do vetor. */
-    (void)sensor;
-    (void)valor;
-    return false;
+    if (sensor == NULL || !leitura_valida(valor) ||
+        sensor->quantidade >= MAX_LEITURAS) {
+        return false;
+    }
+
+    sensor->leituras[sensor->quantidade] = valor;
+    sensor->quantidade++;
+
+    return true;
 }
 
-void exibir_relatorio(const Sensor *sensor) {
-    /* ETAPA 03: substitua esta mensagem pelo relatório completo. */
-    if (sensor != NULL) {
-        printf("Sensor: %s\n", sensor->tag);
-    }
-}
 
 bool lista_adicionar(NoLeitura **inicio, double valor) {
-    /* ETAPA 03: aloque um nó e encadeie-o ao final da lista. */
-    (void)inicio;
-    (void)valor;
-    return false;
+    if (inicio == NULL || !leitura_valida(valor)) {
+        return false;
+    }
+
+    NoLeitura *novo = malloc(sizeof(*novo));
+
+    if (novo == NULL) {
+        return false;
+    }
+
+    novo->valor = valor;
+    novo->proximo = NULL;
+
+    if (*inicio == NULL) {
+        *inicio = novo;
+        return true;
+    }
+
+    NoLeitura *atual = *inicio;
+
+    while (atual->proximo != NULL) {
+        atual = atual->proximo;
+    }
+
+    atual->proximo = novo;
+
+    return true;
 }
+
 
 size_t lista_quantidade(const NoLeitura *inicio) {
-    /* ETAPA 03: percorra a lista com while. */
-    (void)inicio;
-    return 0;
+    size_t quantidade = 0;
+    const NoLeitura *atual = inicio;
+
+    while (atual != NULL) {
+        quantidade++;
+        atual = atual->proximo;
+    }
+
+    return quantidade;
 }
+
 
 double lista_media(const NoLeitura *inicio, bool *possui_dados) {
-    /* ETAPA 03: calcule a média sem acessar um ponteiro nulo. */
-    (void)inicio;
-    if (possui_dados != NULL) {
-        *possui_dados = false;
+    if (possui_dados == NULL) {
+        return 0.0;
     }
-    return 0.0;
+
+    double soma = 0.0;
+    size_t quantidade = 0;
+    const NoLeitura *atual = inicio;
+
+    while (atual != NULL) {
+        soma += atual->valor;
+        quantidade++;
+        atual = atual->proximo;
+    }
+
+    *possui_dados = quantidade > 0;
+
+    return quantidade > 0 ? soma / quantidade : 0.0;
 }
 
+
 void lista_liberar(NoLeitura **inicio) {
-    /* ETAPA 03: libere todos os nós e deixe *inicio igual a NULL. */
-    (void)inicio;
+    if (inicio == NULL) {
+        return;
+    }
+
+    while (*inicio != NULL) {
+        NoLeitura *proximo = (*inicio)->proximo;
+
+        free(*inicio);
+
+        *inicio = proximo;
+    }
+
+}
+void exibir_relatorio(const Sensor *sensor) {
+    if (sensor == NULL) {
+        return;
+    }
+
+    Estatisticas resultado;
+
+    if (!calcular_estatisticas(sensor, &resultado)) {
+        printf("Sensor %s sem leituras validas\n", sensor->tag);
+        return;
+    }
+
+    size_t validas = 0;
+
+    for (size_t i = 0; i < sensor->quantidade; i++) {
+        if (leitura_valida(sensor->leituras[i])) {
+            validas++;
+        }
+    }
+
+    printf("Sensor: %s\n", sensor->tag);
+    printf("Leituras aceitas: %zu\n", validas);
+    printf("Minima: %.1f C\n", resultado.minima);
+    printf("Maxima: %.1f C\n", resultado.maxima);
+    printf("Media: %.1f C\n", resultado.media);
+    printf("Estado: %s\n",
+           estado_como_texto(classificar_leitura(resultado.media)));
 }
 
 bool salvar_leituras(const char *caminho, const NoLeitura *inicio) {
-    /* ETAPA 04: grave uma leitura por linha e feche o arquivo. */
-    (void)caminho;
-    (void)inicio;
-    return false;
+    if (caminho == NULL) {
+        return false;
+    }
+
+    FILE *arquivo = fopen(caminho, "w");
+    if (arquivo == NULL) {
+        return false;
+    }
+
+    const NoLeitura *atual = inicio;
+
+    while (atual != NULL) {
+        if (fprintf(arquivo, "%.17g\n", atual->valor) < 0) {
+            fclose(arquivo);
+            return false;
+        }
+
+        atual = atual->proximo;
+    }
+
+    return fclose(arquivo) == 0;
 }
 
 bool carregar_leituras(const char *caminho, NoLeitura **inicio) {
-    /* ETAPA 04: leia as linhas, reconstrua a lista e feche o arquivo. */
-    (void)caminho;
-    (void)inicio;
-    return false;
+    if (caminho == NULL || inicio == NULL) {
+        return false;
+    }
+
+    FILE *arquivo = fopen(caminho, "r");
+    if (arquivo == NULL) {
+        return false;
+    }
+
+    NoLeitura *temporaria = NULL;
+    double valor;
+
+    while (fscanf(arquivo, "%lf", &valor) == 1) {
+        if (!lista_adicionar(&temporaria, valor)) {
+            lista_liberar(&temporaria);
+            fclose(arquivo);
+            return false;
+        }
+    }
+
+    if (ferror(arquivo) || fclose(arquivo) != 0) {
+        lista_liberar(&temporaria);
+        return false;
+    }
+
+    lista_liberar(inicio);
+    *inicio = temporaria;
+    return true;
 }
